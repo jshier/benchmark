@@ -112,6 +112,28 @@ struct BenchmarkThresholdTests {
         }
     }
 
+    @Test
+    func percentileThresholdsEncodeInPercentileOrder() throws {
+        // `[Percentile: …]` encodes as alternating percentiles and thresholds in iteration order, and dictionaries of
+        // different capacities iterate the same keys differently.
+        struct EncodedAbsolute: Decodable {
+            let absolute: [Int]
+        }
+
+        let thresholds = makeThresholds(capacity: 7, reversed: false)
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = .sortedKeys
+        let encoded = try encoder.encode(thresholds)
+
+        #expect(try encoder.encode(makeThresholds(capacity: 64, reversed: true)) == encoded)
+        let pairs = try JSONDecoder().decode(EncodedAbsolute.self, from: encoded)
+        #expect(pairs.absolute == [0, 0, 1, 10, 2, 20, 3, 30, 4, 40, 5, 50, 6, 60])
+
+        let decoded = try JSONDecoder().decode(BenchmarkThresholds.self, from: encoded)
+        #expect(decoded.relative == thresholds.relative)
+        #expect(decoded.absolute == thresholds.absolute)
+    }
+
     // MARK: Relative and range
 
     @Test
@@ -293,6 +315,18 @@ struct BenchmarkThresholdTests {
 }
 
 extension BenchmarkThresholdTests {
+    /// Thresholds at every percentile, inserted in percentile order or reversed, into dictionaries of `capacity`.
+    private func makeThresholds(capacity: Int, reversed: Bool) -> BenchmarkThresholds {
+        let percentiles: [BenchmarkResult.Percentile] = [.p0, .p25, .p50, .p75, .p90, .p99, .p100]
+        var relative = BenchmarkThresholds.RelativeThresholds(minimumCapacity: capacity)
+        var absolute = BenchmarkThresholds.AbsoluteThresholds(minimumCapacity: capacity)
+        for percentile in reversed ? percentiles.reversed() : percentiles {
+            relative[percentile] = Double(percentile.rawValue) + 0.5
+            absolute[percentile] = percentile.rawValue * 10
+        }
+        return BenchmarkThresholds(relative: relative, absolute: absolute)
+    }
+
     private func makeResult(_ metric: BenchmarkMetric, value: Int) -> BenchmarkResult {
         let statistics = Statistics()
         for _ in 0..<10 {

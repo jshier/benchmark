@@ -31,6 +31,30 @@ public struct BenchmarkThresholds: Codable {
 
     public let relative: RelativeThresholds
     public let absolute: AbsoluteThresholds
+
+    enum CodingKeys: String, CodingKey {
+        case relative
+        case absolute
+    }
+
+    /// Encodes the thresholds as before, each dictionary in the form `Dictionary` uses for keys that aren't strings (an
+    /// array of alternating percentiles and thresholds), but in percentile order rather than by hash, so the same
+    /// thresholds encode to the same bytes and a saved baseline changes only where they do. Decoding is unchanged.
+    ///
+    /// - Parameter encoder: The encoder to write to.
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        var relativeContainer = container.nestedUnkeyedContainer(forKey: .relative)
+        for (percentile, threshold) in relative.sorted(by: { $0.key.rawValue < $1.key.rawValue }) {
+            try relativeContainer.encode(percentile)
+            try relativeContainer.encode(threshold)
+        }
+        var absoluteContainer = container.nestedUnkeyedContainer(forKey: .absolute)
+        for (percentile, threshold) in absolute.sorted(by: { $0.key.rawValue < $1.key.rawValue }) {
+            try absoluteContainer.encode(percentile)
+            try absoluteContainer.encode(threshold)
+        }
+    }
 }
 
 public extension BenchmarkThresholds {

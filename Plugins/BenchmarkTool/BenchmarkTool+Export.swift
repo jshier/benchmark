@@ -231,6 +231,7 @@ extension BenchmarkTool {
         case .histogramEncoded:
             try baseline.results.forEach { key, results in
                 let encoder = JSONEncoder()
+                encoder.outputFormatting = [.sortedKeys]
 
                 try results.forEach { values in
                     let histogram = values.statistics.histogram

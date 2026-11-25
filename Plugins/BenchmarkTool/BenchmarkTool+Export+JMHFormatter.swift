@@ -109,7 +109,9 @@ extension BenchmarkTool {
             }
         }
 
-        let bytesArray = try JSONEncoder().encode(jmhElements)
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        let bytesArray = try encoder.encode(jmhElements)
         resultString = String(bytes: bytesArray, encoding: .utf8)!
 
         return resultString

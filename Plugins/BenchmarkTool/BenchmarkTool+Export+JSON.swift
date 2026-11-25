@@ -59,7 +59,7 @@ extension BenchmarkTool {
         }
 
         let encoder = JSONEncoder()
-        encoder.outputFormatting = .prettyPrinted
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         let jsonData = try encoder.encode(allBenchmarks)
         return String(data: jsonData, encoding: .utf8) ?? "[]"
     }

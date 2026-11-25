@@ -104,6 +104,34 @@ struct BenchmarkBaseline: Codable {
     var machine: BenchmarkMachine
     var results: BenchmarkResultsByIdentifier
 
+    enum CodingKeys: String, CodingKey {
+        case baselineName
+        case machine
+        case results
+    }
+
+    /// Encodes `results` in the form `Dictionary` uses for keys that aren't strings (an array of alternating keys and
+    /// values), so decoding is unchanged, but ordered by target and name rather than by hash: the same results then
+    /// encode to the same bytes (with `.sortedKeys`), and a saved baseline's diff shows only what changed.
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(baselineName, forKey: .baselineName)
+        try container.encode(machine, forKey: .machine)
+        var resultsContainer = container.nestedUnkeyedContainer(forKey: .results)
+        for identifier in benchmarkIdentifiers {
+            try resultsContainer.encode(identifier)
+            try resultsContainer.encode(results[identifier] ?? [])
+        }
+    }
+
+    /// The bytes a baseline is saved as: JSON with sorted keys and results in order (``encode(to:)``), so the same
+    /// results always save the same bytes.
+    func storageRepresentation() throws -> Data {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        return try encoder.encode(self)
+    }
+
     var benchmarkIdentifiers: [BenchmarkIdentifier] {
         Array(results.keys).sorted(by: { ($0.target, $0.name) < ($1.target, $1.name) })
     }
@@ -315,7 +343,7 @@ extension BenchmarkTool {
             do {
                 try fd.closeAfter {
                     do {
-                        let bytesArray = try JSONEncoder().encode(baseline)
+                        let bytesArray = try baseline.storageRepresentation()
 
                         try bytesArray.withUnsafeBytes { (bytes: UnsafeRawBufferPointer) in
                             _ = try fd.write(bytes)
